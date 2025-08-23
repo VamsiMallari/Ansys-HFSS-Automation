@@ -1,4 +1,4 @@
-# HFSS + PyAEDT Setup Guide
+## HFSS + PyAEDT Setup Guide
 # Step 1: Install Python 3.8 on Windows
 PyAEDT works best with Python 3.7 – 3.10. We recommend Python 3.8.
 
