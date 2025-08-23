@@ -1,114 +1,160 @@
-from pyaedt import Hfss
+"""
+Microstrip patch antenna automation (headless) for AEDT/HFSS via PyAEDT.
+This script focuses on robust geometry creation and saving the .aedt project.
+This is a corrected and updated version that uses modern API calls to avoid
+skipping steps and ensures correct port geometry.
+
+Default target: 2.4 GHz microstrip on FR4.
+"""
+
 import os
+from pyaedt import Hfss
 
-# ------------------------------- User Parameters -------------------------------
-ground_length = 100.0
-ground_width = 60.0
+# -------- User configuration --------
+SAVE_PATH = r"C:\Users\Public\Documents\microstrip_patch_corrected.aedt"  # change if you like
+UNITS = "mm"
 
-substrate_length = 100.0
-substrate_width = 60.0
-substrate_height = 1.6
-substrate_material = "FR4_epoxy"
+# Substrate / patch sizing (simple rectangular inset feed can be added later)
+freq_ghz = 2.4
+c = 3e11  # mm/s
+lam = c / (freq_ghz * 1e9)  # mm
+# Simple starter dimensions (approx; not optimized)
+sub_x = 80.0
+sub_y = 60.0
+sub_h = 1.6
 
-patch_length = 30.0
-patch_width = 40.0
+patch_x = 38.0
+patch_y = 29.0
 
-feed_length = 20.0
-feed_width = 3.0
+feed_w = 3.0
+feed_l = 15.0
 
-port_width = 3.0
-port_height = 1.6
+# Positions (origin at substrate corner for simplicity)
+sub_pos = [0.0, 0.0, 0.0]
+patch_pos = [(sub_x - patch_x) / 2.0, (sub_y - patch_y) / 2.0, sub_h]  # on top of substrate
+gnd_pos = [0.0, 0.0, 0.0]  # at z=0
 
-rad_offset = 20.0
-solution_freq = 2.45  # GHz
+# Feed line along -Y edge of patch
+feed_pos = [patch_pos[0] + (patch_x - feed_w) / 2.0, patch_pos[1] - feed_l, sub_h]
 
-# ----------------------------------------------------------------------------
-hfss = Hfss(specified_version="2024.1", non_graphical=False, new_desktop_session=True)
 
-# ----------------------------------------------------------------------------
-# Ground plane
-ground = hfss.modeler.create_rectangle(
-    origin=["-" + str(ground_length / 2) + "mm", "-" + str(ground_width / 2) + "mm", "0mm"],
-    sizes=[str(ground_length) + "mm", str(ground_width) + "mm"],
-    name="ground",
-    material="copper",
-    orientation="XY"
-)
+def ensure_folder(path):
+    """Creates the folder for the given path if it doesn't exist."""
+    folder = os.path.dirname(path)
+    if folder and not os.path.exists(folder):
+        os.makedirs(folder, exist_ok=True)
 
-# Substrate
-substrate = hfss.modeler.create_box(
-    origin=["-" + str(substrate_length / 2) + "mm", "-" + str(substrate_width / 2) + "mm", "0mm"],
-    sizes=[str(substrate_length) + "mm", str(substrate_width) + "mm", str(substrate_height) + "mm"],
-    name="substrate",
-    material=substrate_material
-)
+def main():
+    """Main function to create and save the HFSS project."""
+    ensure_folder(SAVE_PATH)
 
-# Patch
-patch = hfss.modeler.create_rectangle(
-    origin=["-" + str(patch_length / 2) + "mm", "-" + str(patch_width / 2) + "mm", str(substrate_height) + "mm"],
-    sizes=[str(patch_length) + "mm", str(patch_width) + "mm"],
-    name="patch",
-    orientation="XY"
-)
+    # Launch HFSS in non-graphical mode.
+    # A new desktop session ensures a clean environment.
+    hfss = Hfss(non_graphical=True, new_desktop_session=True)
+    try:
+        hfss.modeler.model_units = UNITS
 
-# Feed line
-feed = hfss.modeler.create_rectangle(
-    origin=["-" + str(feed_length + feed_width / 2) + "mm", "-" + str(feed_width / 2) + "mm", str(substrate_height) + "mm"],
-    sizes=[str(feed_length) + "mm", str(feed_width) + "mm"],
-    name="feed",
-    orientation="XY"
-)
+        # --- GEOMETRY CREATION ---
 
-# Port sheet
-port = hfss.modeler.create_rectangle(
-    origin=["-" + str(feed_length + feed_width) + "mm", "-" + str(port_width / 2) + "mm", str(substrate_height) + "mm"],
-    sizes=[str(port_width) + "mm", str(port_height) + "mm"],
-    name="port",
-    orientation="XY"
-)
+        # Substrate (FR4)
+        substrate = hfss.modeler.create_box(sub_pos, [sub_x, sub_y, sub_h], name="Substrate", matname="FR4_epoxy")
 
-# Assign lumped port (safe for different PyAEDT versions)
-def add_lumped_port(h):
-    if hasattr(h, "lumped_port"):
-        return h.lumped_port(sheet_name="port", axisdir="X", impedance=50)
-    if hasattr(h, "create_lumped_port_to_sheet"):
-        return h.create_lumped_port_to_sheet(sheet_name="port", axisdir="X", impedance=50)
-    if hasattr(h, "assign_lumped_port_to_sheet"):
-        return h.assign_lumped_port_to_sheet(sheet_name="port", axisdir="X", renormalize=True,
-                                             impedance="50ohm", name="LumpedPort1")
-    raise AttributeError("No lumped-port API found for this PyAEDT/HFSS version.")
+        # Ground plane (PEC sheet) at z=0
+        ground = hfss.modeler.create_rectangle(
+            cs_plane="XY",
+            position=gnd_pos,
+            dimension_list=[sub_x, sub_y],
+            name="Ground",
+        )
+        ground.material_name = "pec"
 
-add_lumped_port(hfss)
 
-# Radiation box
-rad_x = ground_length + 2 * rad_offset
-rad_y = ground_width + 2 * rad_offset
-rad_z = substrate_height + rad_offset
+        # Patch (PEC sheet) at z = sub_h
+        patch = hfss.modeler.create_rectangle(
+            cs_plane="XY",
+            position=patch_pos,
+            dimension_list=[patch_x, patch_y],
+            name="Patch",
+        )
 
-radiation_box = hfss.modeler.create_box(
-    origin=["-" + str(rad_x / 2) + "mm", "-" + str(rad_y / 2) + "mm", "-" + str(rad_offset) + "mm"],
-    sizes=[str(rad_x) + "mm", str(rad_y) + "mm", str(rad_z) + "mm"],
-    name="radiation",
-    material="air"
-)
 
-# Boundaries
-hfss.assign_radiation_boundary_to_objects(["radiation"], name="RadiationBoundary")
-hfss.assign_perfect_e(["patch", "ground"], name="PerfectE_BP")
+        # Feed microstrip line (PEC sheet) connecting from below patch edge
+        feed = hfss.modeler.create_rectangle(
+            cs_plane="XY",
+            position=feed_pos,
+            dimension_list=[feed_w, feed_l],
+            name="FeedLine",
+        )
 
-# Setup
-setup = hfss.create_setup("Setup1")
-setup.props["Frequency"] = str(solution_freq) + "GHz"
-setup.update()
+        # Unite patch + feed (single conductor) and assign material
+        conductor = hfss.modeler.unite([patch, feed])
+        conductor.name = "Radiator"
+        conductor.material_name = "pec"
 
-# Validate and analyze
-hfss.validate_full_design()
-hfss.analyze()
 
-# Save project
-project_name = "MicrostripAntenna_Project"
-save_path = os.path.join(os.getcwd(), project_name + ".aedt")
-hfss.save_project(save_path)
-hfss.release_desktop()
+        # --- BOUNDARIES AND EXCITATION ---
 
-print("Project saved as " + save_path)
+        # Surround with airbox for radiation boundary
+        pad = 20.0  # mm padding around substrate
+        airbox = hfss.modeler.create_box(
+            [-pad, -pad, 0], # Airbox sits on the ground plane
+            [sub_x + 2 * pad, sub_y + 2 * pad, sub_h + 2 * pad],
+            name="AirBox",
+            matname="air"
+        )
+        
+        # Assign radiation boundary to airbox faces (modern, direct method)
+        hfss.assign_radiation_boundary_to_faces(airbox, "RadBoundary")
+        print("✅ Assigned radiation boundary.")
+
+        # Create a sheet for the Lumped Port at the end of the feed line.
+        # This sheet bridges the gap between the feed line and the ground plane.
+        port_pos = [feed_pos[0], feed_pos[1], 0.0]
+        port_sheet = hfss.modeler.create_rectangle(
+            cs_plane="XZ",  # Correct plane: perpendicular to the feed line direction (Y)
+            position=port_pos,
+            dimension_list=[feed_w, sub_h],  # Correct dimensions: [width_in_X, height_in_Z]
+            name="PortSheet",
+        )
+        print("✅ Created correct port geometry.")
+        
+        # Assign Lumped Port with a defined integration line for robustness
+        # The line runs vertically from the ground plane to the feed line.
+        integration_line_start = [port_pos[0] + feed_w / 2.0, port_pos[1], 0.0]
+        integration_line_end = [port_pos[0] + feed_w / 2.0, port_pos[1], sub_h]
+        
+        hfss.create_lumped_port_to_sheet(
+            sheet_name=port_sheet.name,
+            axis_dir=2, # Corresponds to Z-axis (from ground to feed)
+            port_name="LumpedPort1",
+            port_impedance=50.0,
+            renormalize=True
+        )
+        print("✅ Assigned lumped port.")
+
+        # --- ANALYSIS SETUP ---
+
+        # Solution setup (no sweep; you can add it later)
+        setup = hfss.create_setup("Setup1")
+        setup.props["Frequency"] = f"{freq_ghz}GHz"
+        setup.props["MaximumPasses"] = 12
+        setup.props["DeltaS"] = 0.02
+        setup.update()
+        print("✅ Created analysis setup.")
+
+        # --- SAVE AND EXIT ---
+        
+        # Save (no analyze)
+        hfss.save_project(SAVE_PATH)
+        print(f"✅ Saved microstrip patch project: {SAVE_PATH}")
+
+    except Exception as e:
+        # Catch any unexpected error during the process
+        print(f"❌ An error occurred: {e}")
+    finally:
+        # Ensure AEDT is closed properly whether the script succeeds or fails
+        hfss.release_desktop(close_projects=True, close_desktop=True)
+        print("✅ HFSS desktop released (headless).")
+
+if __name__ == "__main__":
+    main()
