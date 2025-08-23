@@ -27,22 +27,37 @@ Hi, I am a B.Tech student Electronics and Communication Engineering at IIIT RGUK
 
 This repository is one of my projects to showcase automation + RF design expertise.
 # Repository Structure
-HFSS-Horn-Antenna-Automation/
+Ansys-HFSS-Automation/
+
 │
+
 ├── src/
+
 │   ├── horn_antenna.py       # Script to generate Horn Antenna project
+
 │   ├── microstrip_patch.py              # Script to generate Microstrip Patch project
+
 │   ├── test_pyaedt.py                   # Small script to verify PyAEDT setup
+
 │
+
 ├── docs/
+
 │   ├── HFSS_Setup_Guide.md              # Step-by-step HFSS + PyAEDT installation guide
+
 │   ├── Horn_Antenna_Overview.md         # Overview of Horn Antenna design
+
 │   ├── Microstrip_Antenna_Overview.md   # Overview of Microstrip Antenna design
+
 │
+
 ├── .gitignore                           # Ignore virtual environment, cache, etc.
+
 ├── requirements.txt                     # Python dependencies (PyAEDT, etc.)
+
 ├── README.md                            # This file
 
+├── LICENSE.md                           # Contains the details of the license information fo the software
 # Projects Included
 ## 1. Horn Antenna Automation
 - Creates horn antenna geometry (waveguide, funnel, aperture)
