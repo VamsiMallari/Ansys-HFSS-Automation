@@ -96,3 +96,15 @@ The scripts generate:
 # Contact
 For queries, feel free to reach me via GitHub or my student email.
 Always open to collaboration in RF Design, IoT, and Embedded Systems.
+
+#📜 License
+
+This project is authored by VamsiMallari (2025).
+All Rights Reserved.
+
+. You are free to view and learn from this repository for personal, educational, or research purposes.
+
+. Redistribution, modification, sublicensing, or commercial use of this project (in whole or in part) is strictly prohibited without prior written consent from the author.
+
+See the [LICENSE](./LICENSE) file for full terms.
+
