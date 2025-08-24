@@ -1,5 +1,7 @@
-pyaedt>=0.8.0
+pyaedt>=0.8.0;
 python=3.8.0
   or
-python=3.10.0
-Ansys Electronics Suit>=2022R1
+python=3.10.0;
+Ansys Electronics Suit>=2022R1;
+pywin32>=306;
+platform_system=="Windows";
